@@ -9,7 +9,7 @@ import (
 // DummyResponse represents a response that the server can send as answer to a response.
 type DummyResponse struct {
 	Code int
-	ContentType string
+	HeaderValues map[string][]string
 	Body string
 }
 
@@ -17,8 +17,12 @@ type DummyResponse struct {
 // forms).
 func ServeGeneric(input DummyResponse) (*httptest.Server, *http.Client)  {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for key, values := range input.HeaderValues {
+			for _, value := range values {
+				w.Header().Add(key, value)
+			}
+		}
 		w.WriteHeader(input.Code)
-		w.Header().Set("Content-Type", input.ContentType)
 		fmt.Fprintln(w, input.Body)}))
 
 	transport := &http.Transport{
@@ -33,8 +37,12 @@ func ServeGeneric(input DummyResponse) (*httptest.Server, *http.Client)  {
 // header content is ignored.
 func ServeMulti(input map[string]DummyResponse) (*httptest.Server, *http.Client) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for key, values := range input[r.URL.Path].HeaderValues {
+			for _, value := range values {
+				w.Header().Add(key, value)
+			}
+		}
 		w.WriteHeader(input[r.URL.Path].Code)
-		w.Header().Set("Content-Type", input[r.URL.Path].ContentType)
 		fmt.Fprintln(w, input[r.URL.Path].Body)}))
 
 	transport := &http.Transport{
