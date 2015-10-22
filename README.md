@@ -125,5 +125,5 @@ func main() {
 This is my wishlist of things to include in this lib. I'm not making any promises and most of them are just random 
 thoughts that I still need to polish before having something interesting.
 
-- [] **Add form/URL processing** - process values passed as POST or GET to influence the output response;
-- [] **Work with templates** - add templates to answers;
+- [ ] **Add form/URL processing** - process values passed as POST or GET to influence the output response;
+- [ ] **Work with templates** - add templates to answers;
