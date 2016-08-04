@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"fmt"
 	"net/url"
+    "strings"
 )
 
 // DummyResponse represents a response that the server can send as answer to a response.
@@ -27,7 +28,14 @@ func ServeGeneric(input DummyResponse) (*httptest.Server, *http.Client)  {
 
 	transport := &http.Transport{
 		Proxy: func(req *http.Request) (*url.URL, error) {
-			return url.Parse(server.URL)}}
+
+            // If the request host address is the server URL, the client must redirect the request to our server.
+            // Otherwise, do not proxy.
+            if strings.Contains(server.URL, req.URL.Host) {
+				return url.Parse(server.URL)
+			} else {
+				return nil, nil
+			}}}
 
 	httpClient := &http.Client{Transport: transport}
 	return server, httpClient

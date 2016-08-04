@@ -25,11 +25,12 @@ var (
 	SingleServingTestable []Testable
 	MultipleServingTestable []MultiTestable
 	CheckHeaderValuesTestable []Testable
+	ExternalAddressesTestable []Testable
 )
 
 func init() {
 	SingleServingTestable = []Testable{
-		Testable{
+		{
 			U: "/sendTest",
 			BT: "application/json",
 			B: "not importante",
@@ -40,18 +41,18 @@ func init() {
 			E: "{Result:True}\n"}}
 
 	MultipleServingTestable = []MultiTestable{
-		MultiTestable{
+		{
 			U: []string{"/test.html", "/test.json", "/other.php", "/generic"},
 			BT: "not important",
 			B: "not important",
 			I: map[string]DummyResponse{
-				"/test.html": DummyResponse{Body: "Result from HTML test",
+				"/test.html": {Body: "Result from HTML test",
 					HeaderValues: map[string][]string{"Content-Type": {"text/html"}}, Code: 200},
-				"/test.json": DummyResponse{Body: "Result from JSON test",
+				"/test.json": {Body: "Result from JSON test",
 					HeaderValues: map[string][]string{"Content-Type": {"text/html"}}, Code: 200},
-				"/other.php": DummyResponse{Body: "Result from PHP test",
+				"/other.php": {Body: "Result from PHP test",
 					HeaderValues: map[string][]string{"Content-Type": {"text/html"}}, Code: 200},
-				"/generic": DummyResponse{Body: "Result from generic test",
+				"/generic": {Body: "Result from generic test",
 					HeaderValues: map[string][]string{"Content-Type": {"text/html"}}, Code: 200}},
 			E: map[string]string{
 				"/test.html": "Result from HTML test\n",
@@ -60,7 +61,7 @@ func init() {
 				"/generic": "Result from generic test\n"}}}
 
 	CheckHeaderValuesTestable = []Testable {
-		Testable{
+		{
 			U: "/sendTestHeader",
 			BT: "not important",
 			B: "not important",
@@ -69,15 +70,24 @@ func init() {
 				Code: 200,
 				HeaderValues: map[string][]string{"Content-Type": {"application/json"}, "Test-Key": {"TestValue1", "TestValue2"}}},
 			E: map[string][]string{"Content-Type": {"application/json"}, "Test-Key": {"TestValue1", "TestValue2"}}}}
+
+	ExternalAddressesTestable = []Testable {
+		{
+			U: "http://www.google.com",
+			BT: "not important",
+			B: "WWWRRROOONNNGGGGG!!!",
+			I: DummyResponse{
+				Body: "not important",
+				Code: 500,
+				HeaderValues: map[string][]string{}},
+			E: map[string][]string{}}}
 }
 
 func TestSingleServing(T *testing.T) {
 	for _, testCase := range SingleServingTestable {
 		server, client := ServeGeneric(testCase.I)
-		defer server.Close()
 
-		response, err := client.Get(server.URL+testCase.U)
-		defer response.Body.Close()
+        response, err := client.Get(server.URL+testCase.U)
 		if err != nil {
 			T.Fatal(fmt.Sprintf("Error on server processing request: %s", err.Error()))
 		}
@@ -98,13 +108,15 @@ func TestSingleServing(T *testing.T) {
 		if expected != data {
 			T.Fatal(fmt.Sprintf("Mismatch response:\nExpected: %s\nFound: %s", expected, data))
 		}
+
+        response.Body.Close()
+        server.Close()
 	}
 }
 
 func TestMultipleService(T *testing.T) {
 	for _, testCase := range MultipleServingTestable {
-		server, client := ServeMulti(testCase.I)
-		defer server.Close()
+        server, client := ServeMulti(testCase.I)
 
 		for _, url := range testCase.U {
 			response, err := client.Get(server.URL + url)
@@ -123,16 +135,15 @@ func TestMultipleService(T *testing.T) {
 				T.Fatal(fmt.Sprintf("Mismatch response:\nExpected: %s\nFound: %s", expected, data))
 			}
 		}
+        server.Close()
 	}
 }
 
 func TestSingleServingHeaders(T *testing.T) {
 	for _, testCase := range CheckHeaderValuesTestable {
-		server, client := ServeGeneric(testCase.I)
-		defer server.Close()
+        server, client := ServeGeneric(testCase.I)
 
 		response, err := client.Get(server.URL+testCase.U)
-		defer response.Body.Close()
 		if err != nil {
 			T.Fatal(fmt.Sprintf("Error on server processing request: %s", err.Error()))
 		}
@@ -152,5 +163,30 @@ func TestSingleServingHeaders(T *testing.T) {
 				}
 			}
 		}
+        response.Body.Close()
+        server.Close()
 	}
+}
+
+func TestExternalAddressesGeneric(T *testing.T) {
+    for _, testCase := range ExternalAddressesTestable {
+        server, client := ServeGeneric(testCase.I)
+
+        response, err := client.Get(testCase.U)
+        if err != nil {
+            T.Fatalf(fmt.Sprintf("Could not get response from request %s:\n%+v\n", testCase.U, err))
+        }
+
+        data, err := ioutil.ReadAll(response.Body)
+        if err != nil {
+            T.Fatalf(fmt.Sprintf("Error parsing the response body from %s:\n%+v\n", testCase.U, err))
+        }
+
+        if testCase.B == string(data) {
+            T.Fatalf(fmt.Sprintf("External connection did not worked! from %s:\n%+v\n", testCase.U, err))
+        }
+
+        response.Body.Close()
+        server.Close()
+    }
 }
